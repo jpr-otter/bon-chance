@@ -1,0 +1,32 @@
+# Local environment
+.env
+.env.local
+.env.*.local
+
+# Logs and local runtime state
+logs/
+.pids/
+*.log
+
+# Documentation drafts / local docs
+docs/
+
+# Rust build output
+target/
+backend/target/
+
+# Frontend dependencies and build output
+bon-chance-frontend/node_modules/
+bon-chance-frontend/dist/
+bon-chance-frontend/.angular/
+
+# Python environments and caches
+backend/ocr-service/venv/
+**/__pycache__/
+*.pyc
+
+# Editor / OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

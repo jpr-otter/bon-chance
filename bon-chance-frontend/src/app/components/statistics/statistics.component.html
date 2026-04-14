@@ -1,0 +1,262 @@
+<div class="statistics-container">
+  <!-- Header -->
+  <mat-toolbar color="primary" class="page-header">
+    <button mat-icon-button (click)="goBack()" matTooltip="Zurück">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+    <span class="header-title">
+      <mat-icon>analytics</mat-icon>
+      Statistiken & Analysen
+    </span>
+    <span class="spacer"></span>
+    <div class="user-menu">
+      <button mat-button [matMenuTriggerFor]="userMenu" class="user-menu-btn">
+        <span class="welcome-text">
+          Hallo, {{ authService.currentUser()?.username || authService.currentUser()?.email }}
+        </span>
+        <mat-icon class="avatar-icon">account_circle</mat-icon>
+        <mat-icon class="arrow-icon">expand_more</mat-icon>
+      </button>
+      <mat-menu #userMenu="matMenu">
+        <button mat-menu-item (click)="goBack()">
+          <mat-icon>dashboard</mat-icon>
+          <span>Dashboard</span>
+        </button>
+        <button mat-menu-item (click)="goToReceiptManager()">
+          <mat-icon>receipt_long</mat-icon>
+          <span>Kassenbons verwalten</span>
+        </button>
+        <button mat-menu-item (click)="goToBudget()">
+          <mat-icon>account_balance_wallet</mat-icon>
+          <span>Budgets verwalten</span>
+        </button>
+        <button mat-menu-item *ngIf="authService.isAdmin()" (click)="goToAdmin()">
+          <mat-icon>admin_panel_settings</mat-icon>
+          <span>Admin-Modus</span>
+        </button>
+        <button mat-menu-item (click)="logout()">
+          <mat-icon>logout</mat-icon>
+          <span>Abmelden</span>
+        </button>
+      </mat-menu>
+    </div>
+  </mat-toolbar>
+
+  <!-- Loading -->
+  <div class="loading-state" *ngIf="isLoading()">
+    <mat-spinner diameter="50"></mat-spinner>
+    <p>Statistiken werden berechnet...</p>
+  </div>
+
+  <!-- Content -->
+  <div class="stats-content" *ngIf="!isLoading()">
+    
+    <!-- Summary Cards -->
+    <div class="summary-cards">
+      <mat-card class="summary-card">
+        <mat-icon>receipt_long</mat-icon>
+        <div class="stat-value">{{ totalReceipts() }}</div>
+        <div class="stat-label">Kassenbons</div>
+      </mat-card>
+
+      <mat-card class="summary-card">
+        <mat-icon>euro</mat-icon>
+        <div class="stat-value">{{ totalSpent() | currency: 'EUR' }}</div>
+        <div class="stat-label">Gesamt ausgegeben</div>
+      </mat-card>
+
+      <mat-card class="summary-card">
+        <mat-icon>store</mat-icon>
+        <div class="stat-value">{{ uniqueStores() }}</div>
+        <div class="stat-label">Verschiedene Läden</div>
+      </mat-card>
+
+      <mat-card class="summary-card">
+        <mat-icon>shopping_cart</mat-icon>
+        <div class="stat-value">{{ uniqueItems() }}</div>
+        <div class="stat-label">Verschiedene Artikel</div>
+      </mat-card>
+    </div>
+
+    <!-- Tabs for different statistics -->
+    <mat-tab-group class="stats-tabs">
+      
+      <!-- Items Statistics Tab -->
+      <mat-tab label="Artikel-Analyse">
+        <div class="tab-content">
+          <div class="filters-section">
+            <mat-form-field appearance="outline" class="search-field">
+              <mat-icon matPrefix>search</mat-icon>
+              <input matInput 
+                     [ngModel]="searchTerm()" 
+                     (ngModelChange)="searchTerm.set($event)"
+                     placeholder="Artikel suchen...">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="filter-field">
+              <mat-label>Supermarkt</mat-label>
+              <mat-select [ngModel]="selectedStore()" (ngModelChange)="selectedStore.set($event)">
+                <mat-option value="all">Alle Supermärkte</mat-option>
+                <mat-option *ngFor="let store of availableStores()" [value]="store">
+                  {{ store }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <div class="results-info">
+              {{ filteredItemStats().length }} Artikel gefunden
+            </div>
+          </div>
+
+          <div class="table-container">
+            <table class="stats-table">
+              <thead>
+                <tr>
+                  <th (click)="toggleSort('name')" class="sortable">
+                    Artikel
+                    <mat-icon *ngIf="sortBy() === 'name'">
+                      {{ sortDirection() === 'asc' ? 'arrow_upward' : 'arrow_downward' }}
+                    </mat-icon>
+                  </th>
+                  <th (click)="toggleSort('quantity')" class="sortable number-col">
+                    Gekauft
+                    <mat-icon *ngIf="sortBy() === 'quantity'">
+                      {{ sortDirection() === 'asc' ? 'arrow_upward' : 'arrow_downward' }}
+                    </mat-icon>
+                  </th>
+                  <th (click)="toggleSort('avgPrice')" class="sortable number-col">
+                    Ø Preis
+                    <mat-icon *ngIf="sortBy() === 'avgPrice'">
+                      {{ sortDirection() === 'asc' ? 'arrow_upward' : 'arrow_downward' }}
+                    </mat-icon>
+                  </th>
+                  <th class="number-col">Min</th>
+                  <th class="number-col">Max</th>
+                  <th (click)="toggleSort('total')" class="sortable number-col">
+                    Gesamt
+                    <mat-icon *ngIf="sortBy() === 'total'">
+                      {{ sortDirection() === 'asc' ? 'arrow_upward' : 'arrow_downward' }}
+                    </mat-icon>
+                  </th>
+                  <th>Günstigster Laden</th>
+                  <th>Teuerster Laden</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of filteredItemStats()">
+                  <td class="item-name">{{ item.itemName }}</td>
+                  <td class="number-col">{{ item.totalQuantity }}x ({{ item.totalPurchases }})</td>
+                  <td class="number-col price">{{ item.averagePrice | currency: 'EUR' }}</td>
+                  <td class="number-col price min-price">{{ item.minPrice | currency: 'EUR' }}</td>
+                  <td class="number-col price max-price">{{ item.maxPrice | currency: 'EUR' }}</td>
+                  <td class="number-col price total-price">{{ item.totalSpent | currency: 'EUR' }}</td>
+                  <td class="store-info cheapest">{{ getCheapestStore(item) }}</td>
+                  <td class="store-info expensive">{{ getMostExpensiveStore(item) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </mat-tab>
+
+      <!-- Store Statistics Tab -->
+      <mat-tab label="Supermärkte">
+        <div class="tab-content">
+          <div class="table-container">
+            <table class="stats-table">
+              <thead>
+                <tr>
+                  <th>Supermarkt</th>
+                  <th class="number-col">Besuche</th>
+                  <th class="number-col">Gesamt ausgegeben</th>
+                  <th class="number-col">Ø pro Einkauf</th>
+                  <th class="number-col">Artikel gekauft</th>
+                  <th>Erster Besuch</th>
+                  <th>Letzter Besuch</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let store of storeStatistics()">
+                  <td class="store-name">
+                    <mat-icon>store</mat-icon>
+                    {{ store.storeName }}
+                  </td>
+                  <td class="number-col">{{ store.totalVisits }}</td>
+                  <td class="number-col price total-price">{{ store.totalSpent | currency: 'EUR' }}</td>
+                  <td class="number-col price">{{ store.averageReceiptAmount | currency: 'EUR' }}</td>
+                  <td class="number-col">{{ store.itemCount }}</td>
+                  <td>{{ store.firstVisit | date: 'dd.MM.yyyy' }}</td>
+                  <td>{{ store.lastVisit | date: 'dd.MM.yyyy' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </mat-tab>
+
+      <!-- Monthly Statistics Tab -->
+      <mat-tab label="Monatlich">
+        <div class="tab-content">
+          <div class="table-container">
+            <table class="stats-table">
+              <thead>
+                <tr>
+                  <th>Monat</th>
+                  <th class="number-col">Kassenbons</th>
+                  <th class="number-col">Gesamt ausgegeben</th>
+                  <th class="number-col">Ø pro Kassenbon</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let month of monthlyStatistics()">
+                  <td class="month-cell">
+                    <mat-icon>calendar_month</mat-icon>
+                    {{ month.month }} {{ month.year }}
+                  </td>
+                  <td class="number-col">{{ month.receiptCount }}</td>
+                  <td class="number-col price total-price">{{ month.totalSpent | currency: 'EUR' }}</td>
+                  <td class="number-col price">{{ month.averagePerReceipt | currency: 'EUR' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </mat-tab>
+
+      <!-- Category Statistics Tab -->
+      <mat-tab label="Kategorien">
+        <div class="tab-content">
+          <div class="table-container">
+            <table class="stats-table">
+              <thead>
+                <tr>
+                  <th>Kategorie</th>
+                  <th class="number-col">Anzahl Artikel</th>
+                  <th class="number-col">Gesamt ausgegeben</th>
+                  <th class="number-col">Anteil</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let category of categoryStatistics()">
+                  <td class="category-name">
+                    <mat-icon>category</mat-icon>
+                    {{ category.categoryName }}
+                  </td>
+                  <td class="number-col">{{ category.itemCount }}</td>
+                  <td class="number-col price total-price">{{ category.totalSpent | currency: 'EUR' }}</td>
+                  <td class="number-col">
+                    <div class="percentage-bar">
+                      <div class="percentage-fill" [style.width.%]="category.percentage"></div>
+                      <span class="percentage-text">{{ category.percentage | number: '1.1-1' }}%</span>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </mat-tab>
+
+    </mat-tab-group>
+  </div>
+</div>

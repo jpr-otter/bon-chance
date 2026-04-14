@@ -1,0 +1,262 @@
+<div class="receipt-manager-container">
+  <!-- Compact Header -->
+  <mat-toolbar color="primary" class="page-header">
+    <button mat-icon-button (click)="goBack()" matTooltip="Zurück">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+    <span class="header-title">
+      <mat-icon>receipt_long</mat-icon>
+      Kassenbons
+    </span>
+    <span class="spacer"></span>
+    
+    <!-- Quick Stats -->
+    <div class="quick-stats" *ngIf="!selectedReceiptIds().size">
+      <span class="stat-item">
+        <mat-icon>receipt</mat-icon>
+        {{ filteredReceipts().length }}
+      </span>
+      <span class="stat-item">
+        <mat-icon>euro</mat-icon>
+        {{ totalAmount() | currency: 'EUR' }}
+      </span>
+    </div>
+
+    <!-- Selection Actions -->
+    <div class="selection-actions" *ngIf="selectedReceiptIds().size > 0">
+      <span class="selection-count">{{ selectedReceiptIds().size }} ausgewählt</span>
+      <button mat-icon-button color="warn" (click)="bulkDeleteReceipts()" matTooltip="Löschen">
+        <mat-icon>delete</mat-icon>
+      </button>
+      <button mat-icon-button (click)="clearSelection()" matTooltip="Abbrechen">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+
+    <!-- Actions Menu -->
+    <button mat-icon-button [matMenuTriggerFor]="actionsMenu" matTooltip="Aktionen">
+      <mat-icon>more_vert</mat-icon>
+    </button>
+    <mat-menu #actionsMenu="matMenu">
+      <button mat-menu-item (click)="openSpendingAnalysis()">
+        <mat-icon>analytics</mat-icon>
+        <span>Ausgaben Analyse</span>
+      </button>
+      <button mat-menu-item (click)="selectAll()">
+        <mat-icon>select_all</mat-icon>
+        <span>Alle auswählen</span>
+      </button>
+      <button mat-menu-item (click)="clearSelection()" [disabled]="selectedReceiptIds().size === 0">
+        <mat-icon>deselect</mat-icon>
+        <span>Auswahl aufheben</span>
+      </button>
+    </mat-menu>
+
+    <!-- User Menu -->
+    <div class="user-menu">
+      <button mat-button [matMenuTriggerFor]="userMenu" class="user-menu-btn">
+        <mat-icon class="avatar-icon">account_circle</mat-icon>
+        <mat-icon class="arrow-icon">expand_more</mat-icon>
+      </button>
+      <mat-menu #userMenu="matMenu">
+        <button mat-menu-item (click)="goToDashboard()">
+          <mat-icon>dashboard</mat-icon>
+          <span>Dashboard</span>
+        </button>
+        <button mat-menu-item (click)="goToBudget()">
+          <mat-icon>account_balance_wallet</mat-icon>
+          <span>Budgets verwalten</span>
+        </button>
+        <button mat-menu-item (click)="goToStatistics()">
+          <mat-icon>analytics</mat-icon>
+          <span>Statistiken & Analysen</span>
+        </button>
+        <button mat-menu-item *ngIf="authService.isAdmin()" (click)="goToAdmin()">
+          <mat-icon>admin_panel_settings</mat-icon>
+          <span>Admin-Modus</span>
+        </button>
+        <button mat-menu-item (click)="logout()">
+          <mat-icon>logout</mat-icon>
+          <span>Abmelden</span>
+        </button>
+      </mat-menu>
+    </div>
+  </mat-toolbar>
+
+  <!-- Filter Bar -->
+  <div class="filter-bar">
+    <mat-form-field appearance="outline" class="search-box">
+      <mat-icon matPrefix>search</mat-icon>
+      <input matInput [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event); onFilterChange()" placeholder="Suchen">
+      <button mat-icon-button matSuffix *ngIf="searchTerm()" (click)="searchTerm.set(''); onFilterChange()">
+        <mat-icon>clear</mat-icon>
+      </button>
+    </mat-form-field>
+
+    <button mat-stroked-button [matMenuTriggerFor]="filterMenu" class="filter-button">
+      <mat-icon>filter_list</mat-icon>
+      Filter
+      <span class="filter-badge" *ngIf="activeFilterCount() > 0">{{ activeFilterCount() }}</span>
+    </button>
+
+    <mat-menu #filterMenu="matMenu" class="filter-menu">
+      <div class="filter-content" (click)="$event.stopPropagation()">
+        <div class="filter-section">
+          <label>Zeitraum</label>
+          <mat-button-toggle-group [ngModel]="dateFilter()" (ngModelChange)="dateFilter.set($event); onFilterChange()">
+            <mat-button-toggle value="">Alle</mat-button-toggle>
+            <mat-button-toggle value="today">Heute</mat-button-toggle>
+            <mat-button-toggle value="week">7 Tage</mat-button-toggle>
+            <mat-button-toggle value="month">30 Tage</mat-button-toggle>
+          </mat-button-toggle-group>
+        </div>
+
+        <div class="filter-section">
+          <label>Betrag</label>
+          <mat-button-toggle-group [ngModel]="amountFilter()" (ngModelChange)="amountFilter.set($event); onFilterChange()">
+            <mat-button-toggle value="">Alle</mat-button-toggle>
+            <mat-button-toggle value="0-25">0-25€</mat-button-toggle>
+            <mat-button-toggle value="25-50">25-50€</mat-button-toggle>
+            <mat-button-toggle value="50+">50+€</mat-button-toggle>
+          </mat-button-toggle-group>
+        </div>
+
+        <div class="filter-section">
+          <label>Sortierung</label>
+          <mat-select [ngModel]="sortBy()" (ngModelChange)="sortBy.set($event); onFilterChange()">
+            <mat-option value="date-desc">Neueste zuerst</mat-option>
+            <mat-option value="date-asc">Älteste zuerst</mat-option>
+            <mat-option value="amount-desc">Höchster Betrag</mat-option>
+            <mat-option value="amount-asc">Niedrigster Betrag</mat-option>
+          </mat-select>
+        </div>
+
+        <div class="filter-actions">
+          <button mat-button (click)="resetFilters()">Zurücksetzen</button>
+        </div>
+      </div>
+    </mat-menu>
+  </div>
+
+  <!-- Content Area -->
+  <div class="content-area">
+    <!-- Loading State -->
+    <div class="loading-state" *ngIf="isLoading()">
+      <mat-spinner diameter="50"></mat-spinner>
+      <p>Kassenbons werden geladen...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" *ngIf="!isLoading() && filteredReceipts().length === 0 && !searchTerm()">
+      <mat-icon>receipt_long</mat-icon>
+      <h2>Keine Kassenbons</h2>
+      <p>Erstelle deinen ersten Kassenbon oder scanne einen neuen.</p>
+      <button mat-raised-button color="primary" (click)="goBack()">
+        <mat-icon>add</mat-icon>
+        Kassenbon erstellen
+      </button>
+    </div>
+
+    <!-- No Results -->
+    <div class="empty-state" *ngIf="!isLoading() && filteredReceipts().length === 0 && searchTerm()">
+      <mat-icon>search_off</mat-icon>
+      <h2>Keine Ergebnisse</h2>
+      <p>Keine Kassenbons entsprechen deinen Suchkriterien.</p>
+      <button mat-button (click)="searchTerm.set(''); onFilterChange()">Filter zurücksetzen</button>
+    </div>
+
+    <!-- Expand/Collapse All Bar -->
+    <div class="expand-collapse-bar" *ngIf="!isLoading() && receiptsByMonth().length > 0">
+      <button mat-button (click)="toggleAllPanels()" class="expand-collapse-btn">
+        <mat-icon>{{ allExpanded() ? 'unfold_less' : 'unfold_more' }}</mat-icon>
+        {{ allExpanded() ? 'Alle zuklappen' : 'Alle aufklappen' }}
+      </button>
+    </div>
+
+    <!-- Receipt Grid grouped by Month -->
+    <mat-accordion #accordion class="receipts-accordion" *ngIf="!isLoading() && filteredReceipts().length > 0" multi>
+      <mat-expansion-panel *ngFor="let group of receiptsByMonth(); trackBy: trackByMonthKey">
+        <mat-expansion-panel-header>
+          <mat-panel-title>
+            <span class="month-title">{{ group.label }}</span>
+          </mat-panel-title>
+          <mat-panel-description>
+            <span class="month-count">({{ group.receipts.length }})</span>
+          </mat-panel-description>
+        </mat-expansion-panel-header>
+
+        <div class="receipt-grid">
+          <div class="receipt-card" *ngFor="let receipt of group.receipts; trackBy: trackByReceiptId"
+               [class.selected]="selectedReceiptIds().has(receipt.id)">
+            
+            <!-- Checkbox -->
+            <mat-checkbox 
+              class="card-checkbox"
+              [checked]="selectedReceiptIds().has(receipt.id)"
+              (change)="toggleSelection(receipt.id)"
+              (click)="$event.stopPropagation()">
+            </mat-checkbox>
+
+            <!-- Card Content -->
+            <div class="card-content" (click)="openReceiptDetail(receipt)">
+              <!-- Header -->
+              <div class="card-header">
+                <div class="store-info">
+                  <mat-icon class="store-icon">store</mat-icon>
+                  <span class="store-name">{{ receipt.store?.name || 'Unbekannter Laden' }}</span>
+                </div>
+                <span class="status-chip" [class]="'status-' + (receipt.status || 'unknown').toLowerCase()">
+                  {{ getStatusLabel(receipt.status || '') }}
+                </span>
+              </div>
+
+              <!-- Date -->
+              <div class="card-date">
+                <mat-icon>calendar_today</mat-icon>
+                <span>{{ receipt.purchaseDate | date: 'dd.MM.yyyy HH:mm' }}</span>
+              </div>
+
+              <!-- Items Preview -->
+              <div class="items-preview" *ngIf="receipt.items && receipt.items.length > 0">
+                <div class="item-row" *ngFor="let item of receipt.items.slice(0, 3)">
+                  <span class="item-name">{{ item.descriptionRaw }}</span>
+                  <span class="item-price">{{ item.price | currency: 'EUR' }}</span>
+                </div>
+                <div class="more-items" *ngIf="receipt.items.length > 3">
+                  + {{ receipt.items.length - 3 }} weitere Artikel
+                </div>
+              </div>
+
+              <!-- Footer -->
+              <div class="card-footer">
+                <div class="total-amount">
+                  <span class="label">Gesamt:</span>
+                  <span class="amount">{{ receipt.totalAmount | currency: 'EUR' }}</span>
+                </div>
+                <div class="item-count">
+                  <mat-icon>shopping_cart</mat-icon>
+                  {{ receipt.items?.length || 0 }} Artikel
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card-actions">
+              <button mat-icon-button (click)="openReceiptDetail(receipt); $event.stopPropagation()" matTooltip="Details">
+                <mat-icon>visibility</mat-icon>
+              </button>
+              <button mat-icon-button (click)="deleteReceipt(receipt.id); $event.stopPropagation()" matTooltip="Löschen" color="warn">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          </div>
+        </div>
+      </mat-expansion-panel>
+    </mat-accordion>
+  </div>
+
+  <!-- FAB for adding new receipt -->
+  <button mat-fab color="primary" class="add-fab" (click)="goBack()" matTooltip="Neuer Kassenbon">
+    <mat-icon>add</mat-icon>
+  </button>
+</div>

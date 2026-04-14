@@ -1,0 +1,1 @@
+ALTER TABLE receipts ADD COLUMN store_name VARCHAR(255);

@@ -1,0 +1,128 @@
+<div class="receipt-detail-container">
+  <h1 mat-dialog-title>
+    <mat-icon>receipt</mat-icon>
+    Kassenbon Details
+  </h1>
+
+  <mat-dialog-content class="detail-content">
+    <!-- Receipt Header Info -->
+    <mat-card class="receipt-header">
+      <mat-card-header>
+        <mat-card-title>
+          {{ receipt.store?.name || 'Unbekannter Store' }}
+        </mat-card-title>
+        <mat-card-subtitle>
+          {{ (receipt.purchaseDate | date : 'dd.MM.yyyy HH:mm') || 'Unbekanntes Datum' }}
+        </mat-card-subtitle>
+      </mat-card-header>
+
+      <mat-card-content>
+        <div class="receipt-summary">
+          <div class="summary-item">
+            <span class="label">Gesamtbetrag:</span>
+            <span class="amount total-amount">{{
+              receipt.totalAmount || 0 | currency : 'EUR' : 'symbol' : '1.2-2' : 'de'
+            }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Anzahl Artikel:</span>
+            <span class="count">{{ receipt.items?.length || 0 }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Status:</span>
+            <mat-chip [class]="'status-' + (receipt.status || 'pending').toLowerCase()">
+              {{ getStatusLabel(receipt.status) }}
+            </mat-chip>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-divider></mat-divider>
+
+    <!-- Raw Text Section -->
+    <div class="raw-text-section" *ngIf="receipt.rawText">
+      <h3>
+        <mat-icon>text_snippet</mat-icon>
+        Erkannter Text (OCR)
+      </h3>
+      <mat-card class="raw-text-card">
+        <mat-card-content>
+          <pre class="raw-text-content">{{ receipt.rawText }}</pre>
+        </mat-card-content>
+      </mat-card>
+    </div>
+
+    <mat-divider></mat-divider>
+
+    <!-- Items List -->
+    <div class="items-section">
+      <h3>
+        <mat-icon>list</mat-icon>
+        Artikel ({{ receipt.items?.length || 0 }})
+      </h3>
+
+      <div class="items-list" *ngIf="receipt.items && receipt.items.length > 0; else noItems">
+        <mat-card *ngFor="let item of receipt.items; trackBy: trackByItemId" class="item-card">
+          <mat-card-content>
+            <div class="item-header">
+              <h4 class="item-description">
+                {{ item.descriptionRaw || 'Unbekannter Artikel' }}
+              </h4>
+              <span class="item-price">{{
+                item.price || 0 | currency : 'EUR' : 'symbol' : '1.2-2' : 'de'
+              }}</span>
+            </div>
+
+            <div class="item-details">
+              <div class="detail-row">
+                <span class="detail-label">Menge:</span>
+                <span class="detail-value">{{ item.quantity || 1 }}x</span>
+              </div>
+
+              <div class="detail-row" *ngIf="item.categoryId">
+                <span class="detail-label">Kategorie:</span>
+                <mat-chip class="category-chip" [style.background-color]="getCategoryColor(item.categoryId)" style="color: white;">{{ item.categoryId }}</mat-chip>
+              </div>
+
+              <div class="detail-row">
+                <span class="detail-label">Gesamt:</span>
+                <span class="detail-value item-total">
+                  {{
+                    (item.price || 0) * (item.quantity || 1)
+                      | currency : 'EUR' : 'symbol' : '1.2-2' : 'de'
+                  }}
+                </span>
+              </div>
+
+              <div class="detail-row" *ngIf="item.confidenceScore">
+                <span class="detail-label">OCR Vertrauen:</span>
+                <span
+                  class="confidence-score"
+                  [class]="getConfidenceClass(item.confidenceScore)"
+                >
+                  {{ (item.confidenceScore || 0) * 100 | number : '1.0-0' }}%
+                </span>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+
+      <ng-template #noItems>
+        <div class="no-items">
+          <mat-icon>inbox</mat-icon>
+          <p>Keine Artikel vorhanden</p>
+        </div>
+      </ng-template>
+    </div>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end">
+    <button mat-button (click)="close()">Schließen</button>
+    <button mat-raised-button color="primary" (click)="editReceipt()">
+      <mat-icon>edit</mat-icon>
+      Bearbeiten
+    </button>
+  </mat-dialog-actions>
+</div>

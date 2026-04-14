@@ -1,0 +1,173 @@
+<div class="edit-container">
+  <h1 mat-dialog-title>
+    <mat-icon>edit</mat-icon>
+    Kassenbon bearbeiten
+  </h1>
+
+  <mat-dialog-content class="edit-content">
+    <form [formGroup]="receiptForm">
+      
+      <!-- Receipt Info Section -->
+      <div class="form-section">
+        <h3>
+          <mat-icon>store</mat-icon>
+          Bon-Informationen
+        </h3>
+        
+        <div class="form-row">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Geschäft</mat-label>
+            <input matInput formControlName="storeName" placeholder="z.B. ALDI, REWE">
+            <mat-icon matPrefix>shopping_cart</mat-icon>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Kaufdatum</mat-label>
+            <input matInput [matDatepicker]="picker" formControlName="purchaseDate">
+            <mat-datepicker-toggle matPrefix [for]="picker"></mat-datepicker-toggle>
+            <mat-datepicker #picker></mat-datepicker>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Gesamtbetrag (Original vom Kassenbon)</mat-label>
+            <input matInput type="number" formControlName="totalAmount" step="0.01">
+            <span matPrefix>€&nbsp;</span>
+            <mat-icon matSuffix>euro</mat-icon>
+          </mat-form-field>
+        </div>
+
+        <!-- Total Mismatch Warning -->
+        <div class="total-mismatch-warning" *ngIf="hasTotalMismatch()">
+          <mat-icon>warning</mat-icon>
+          <span>
+            Die Summe der Artikel ({{ getCalculatedTotal() | number:'1.2-2' }}€) 
+            weicht vom gespeicherten Gesamtbetrag ({{ receiptForm.get('totalAmount')?.value | number:'1.2-2' }}€) ab.
+          </span>
+          <button mat-stroked-button 
+                  type="button" 
+                  color="primary"
+                  (click)="syncTotalWithItems()"
+                  matTooltip="Gesamtbetrag an Artikelsumme anpassen">
+            <mat-icon>sync</mat-icon>
+            Synchronisieren
+          </button>
+          <button mat-stroked-button 
+                  type="button"
+                  (click)="restoreOriginalTotal()"
+                  matTooltip="Ursprünglichen OCR-Wert wiederherstellen">
+            <mat-icon>restore</mat-icon>
+            Original ({{ originalTotal | number:'1.2-2' }}€)
+          </button>
+        </div>
+      </div>
+
+      <!-- Items Section -->
+      <div class="form-section">
+        <h3>
+          <mat-icon>list</mat-icon>
+          Artikel ({{ items.length }})
+        </h3>
+
+        <div class="items-list" formArrayName="items">
+          <div *ngFor="let item of items.controls; let i = index" class="item-card">
+            <div [formGroupName]="i">
+              <div class="item-header">
+                <span class="item-number">Artikel {{ i + 1 }}</span>
+                <button mat-icon-button 
+                        type="button"
+                        class="remove-item-btn" 
+                        (click)="removeItem(i)"
+                        [disabled]="items.length === 1"
+                        matTooltip="Artikel entfernen">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+
+              <div class="form-row">
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Beschreibung</mat-label>
+                  <input matInput formControlName="description" placeholder="Produktname">
+                  <mat-icon matPrefix>label</mat-icon>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Kategorie</mat-label>
+                  <mat-select formControlName="category">
+                    <mat-option *ngFor="let cat of categories" [value]="cat">
+                      <span class="category-option">
+                        <span class="category-dot" [style.background-color]="getCategoryColor(cat)"></span>
+                        {{ cat }}
+                      </span>
+                    </mat-option>
+                  </mat-select>
+                  <mat-icon matPrefix [style.color]="getCategoryColor(items.at(i).get('category')?.value)">category</mat-icon>
+                </mat-form-field>
+              </div>
+
+              <div class="form-row">
+                <mat-form-field appearance="outline">
+                  <mat-label>Menge</mat-label>
+                  <input matInput 
+                         type="number" 
+                         formControlName="quantity" 
+                         min="1"
+                         (input)="onItemPriceChange(i)">
+                  <mat-icon matPrefix>inventory_2</mat-icon>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Einzelpreis</mat-label>
+                  <input matInput 
+                         type="number" 
+                         formControlName="unitPrice" 
+                         step="0.01"
+                         (input)="onItemPriceChange(i)">
+                  <span matPrefix>€&nbsp;</span>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Gesamt</mat-label>
+                  <input matInput 
+                         type="number" 
+                         formControlName="totalPrice" 
+                         step="0.01"
+                         readonly>
+                  <span matPrefix>€&nbsp;</span>
+                </mat-form-field>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button mat-stroked-button 
+                type="button"
+                class="add-item-btn" 
+                (click)="addItem()"
+                color="primary">
+          <mat-icon>add</mat-icon>
+          Artikel hinzufügen
+        </button>
+      </div>
+
+    </form>
+  </mat-dialog-content>
+
+  <mat-dialog-actions class="form-actions">
+    <button mat-button (click)="cancel()" [disabled]="isLoading()">
+      Abbrechen
+    </button>
+    <button mat-raised-button 
+            color="primary" 
+            class="save-btn"
+            (click)="save()" 
+            [disabled]="receiptForm.invalid || isLoading()">
+      <mat-icon>save</mat-icon>
+      Speichern
+    </button>
+  </mat-dialog-actions>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" *ngIf="isLoading()">
+    <mat-spinner diameter="50"></mat-spinner>
+  </div>
+</div>

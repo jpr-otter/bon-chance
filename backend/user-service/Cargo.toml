@@ -1,0 +1,25 @@
+[package]
+name = "user-service"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { workspace = true }
+axum = { workspace = true }
+axum-extra = { version = "0.9", features = ["typed-header"] }
+tower = { workspace = true }
+tower-http = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+sqlx = { workspace = true, features = ["rust_decimal"] }
+rust_decimal = { version = "1.35", features = ["serde-float"] }
+chrono = { workspace = true }
+bcrypt = "0.15"
+argon2 = "0.5"
+jsonwebtoken = "9.2"
+dotenv = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+anyhow = { workspace = true }
+shared = { path = "../shared" }

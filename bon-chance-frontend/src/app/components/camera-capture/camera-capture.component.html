@@ -1,0 +1,48 @@
+<div class="camera-container">
+  <!-- Kamera Preview -->
+  <div class="camera-preview">
+    <video
+      #videoElement
+      [hidden]="!cameraService.isActive()"
+      autoplay
+      playsinline
+      class="video-stream"
+    ></video>
+
+    <canvas #canvasElement style="display: none;"> </canvas>
+
+    <div *ngIf="!cameraService.isActive()" class="camera-placeholder">
+      <div class="camera-icon">📷</div>
+      <p>Bereit zum Fotografieren</p>
+    </div>
+  </div>
+
+  <!-- Kamera Controls -->
+  <div class="camera-controls">
+    <button
+      *ngIf="!cameraService.isActive()"
+      (click)="startCamera()"
+      class="btn-camera-start"
+      [disabled]="isStarting()"
+    >
+      <span *ngIf="!isStarting()">📷 Kamera starten</span>
+      <span *ngIf="isStarting()">⏳ Starte Kamera...</span>
+    </button>
+
+    <div *ngIf="cameraService.isActive()" class="active-controls">
+      <button (click)="takePhoto()" class="btn-capture" [disabled]="!cameraService.isActive()">
+        📸 Foto aufnehmen
+      </button>
+
+      <button (click)="cancel()" class="btn-cancel">❌ Abbrechen</button>
+    </div>
+  </div>
+
+  <!-- Permission Error -->
+  <div *ngIf="cameraService.hasPermission() === false" class="permission-error">
+    <div class="error-icon">🚫</div>
+    <h4>Kamera-Zugriff verweigert</h4>
+    <p>Bitte erlaube den Kamera-Zugriff in deinem Browser und versuche es erneut.</p>
+    <button (click)="startCamera()" class="btn-retry">🔄 Erneut versuchen</button>
+  </div>
+</div>

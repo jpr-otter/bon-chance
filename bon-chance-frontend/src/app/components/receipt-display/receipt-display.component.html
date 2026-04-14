@@ -1,0 +1,132 @@
+<div class="receipt-display">
+  <!-- Receipt Header -->
+  <div class="receipt-header">
+    <div class="store-info">
+      <h3>{{ receipt?.store?.name || 'Unbekannter Laden' }}</h3>
+      <p class="date">{{ receipt?.purchaseDate | date : 'dd.MM.yyyy HH:mm' }}</p>
+    </div>
+    <div class="total-amount">
+      <span class="label">Gesamt:</span>
+      <span class="amount">{{ receipt?.totalAmount | number : '1.2-2' }}€</span>
+    </div>
+  </div>
+
+  <!-- Items List -->
+  <div class="items-section">
+    <h4>Artikel ({{ receipt?.items?.length || 0 }})</h4>
+
+    <div *ngIf="!receipt || !receipt.items || receipt.items.length === 0" class="no-items">
+      <div class="empty-icon">📝</div>
+      <p>Keine Artikel erkannt</p>
+      <p class="hint">Versuche es mit einem anderen Foto oder korrigiere manuell.</p>
+    </div>
+
+        <div *ngIf="receipt && receipt.items && receipt.items.length > 0" class="items-list">
+      <div 
+        class="item-row"
+        *ngFor="let item of receipt?.items; trackBy: trackByItemId"
+        class="item-card"
+        [class.low-confidence]="(item.confidenceScore || 0) < 0.7"
+        [class.corrected]="item.isCorrectedByUser"
+      >
+        <!-- Item Content -->
+        <div class="item-content">
+          <div class="item-description">
+            <input
+              [(ngModel)]="item.descriptionRaw"
+              (blur)="onItemUpdate(item)"
+              class="description-input"
+              [class.needs-review]="(item.confidenceScore || 0) < 0.7"
+              placeholder="Produktname"
+            />
+
+            <div class="item-meta">
+              <span
+                class="confidence"
+                [class.low]="(item.confidenceScore || 0) < 0.7"
+                [class.high]="(item.confidenceScore || 0) >= 0.9"
+              >
+                Sicherheit: {{ ((item.confidenceScore || 0) * 100) | number : '1.0-0' }}%
+              </span>
+              <span *ngIf="item.isCorrectedByUser" class="corrected-badge"> ✓ Korrigiert </span>
+            </div>
+          </div>
+
+          <div class="item-details">
+            <div class="quantity-section">
+              <label>Menge:</label>
+              <input
+                type="number"
+                [(ngModel)]="item.quantity"
+                (blur)="onItemUpdate(item)"
+                min="0.01"
+                step="0.01"
+                class="quantity-input"
+              />
+              <select [(ngModel)]="item.unitType" (change)="onItemUpdate(item)" class="unit-select">
+                <option value="stk">Stück</option>
+                <option value="kg">kg</option>
+                <option value="g">g</option>
+                <option value="l">l</option>
+                <option value="ml">ml</option>
+              </select>
+            </div>
+
+            <div class="price-section">
+              <label>Preis:</label>
+              <input
+                type="number"
+                [(ngModel)]="item.price"
+                (blur)="onItemUpdate(item)"
+                min="0"
+                step="0.01"
+                class="price-input"
+              />
+              <span class="currency">€</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Item Actions -->
+        <div class="item-actions">
+          <button (click)="deleteItem(item.id)" class="btn-delete" title="Artikel löschen">🗑️</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions-section">
+    <div class="action-buttons">
+      <button (click)="onSave()" class="btn-save" [disabled]="!hasValidItems()">💾 Speichern</button>
+
+      <button (click)="onNewScan()" class="btn-new-scan">🔄 Neuer Scan</button>
+
+      <button (click)="addManualItem()" class="btn-add-item">➕ Artikel hinzufügen</button>
+    </div>
+
+    <div class="summary-info">
+      <p class="items-count">{{ validItemsCount() }} von {{ receipt?.items?.length || 0 }} Artikel gültig</p>
+      <p *ngIf="calculatedTotal() !== receipt?.totalAmount" class="total-mismatch">
+        ⚠️ Berechnete Summe: {{ calculatedTotal() | number : '1.2-2' }}€
+      </p>
+    </div>
+  </div>
+
+  <!-- Raw OCR Text (Collapsible) -->
+  <div class="raw-text-section">
+    <button (click)="showRawText.set(!showRawText())" class="btn-toggle">
+      {{ showRawText() ? '🔽' : '🔼' }} Roher OCR-Text
+    </button>
+
+    <div *ngIf="showRawText()" class="raw-text">
+      <textarea
+        [value]="receipt?.rawText || 'Kein Text verfügbar'"
+        readonly
+        rows="8"
+        class="raw-text-area"
+      >
+      </textarea>
+    </div>
+  </div>
+</div>

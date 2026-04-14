@@ -1,0 +1,73 @@
+<div class="scanner-container">
+  <div class="scanner-header">
+    <h2>📱 Kassenbon scannen</h2>
+    <p>Fotografiere deinen Kassenbon für automatische Erkennung</p>
+  </div>
+
+  <!-- Schritt 1: Foto aufnehmen -->
+  <div class="step" [class.active]="currentStep() === 'camera'" [class.completed]="currentStep() !== 'camera' && capturedImage()">
+    <div class="step-header">
+      <span class="step-number">1</span>
+      <h3>Foto aufnehmen</h3>
+    </div>
+    
+    <app-camera-capture 
+      *ngIf="currentStep() === 'camera'"
+      (imageCapture)="onImageCaptured($event)"
+      (cancelAction)="onCancel()">
+    </app-camera-capture>
+    
+    <div *ngIf="currentStep() !== 'camera' && capturedImage()" class="step-summary">
+      <span class="success-icon">✅</span>
+      <span>Foto aufgenommen</span>
+      <button class="btn-link" (click)="retakePhoto()">Neu aufnehmen</button>
+    </div>
+  </div>
+
+  <!-- Schritt 2: OCR Verarbeitung -->
+  <div class="step" [class.active]="currentStep() === 'processing'" [class.completed]="currentStep() !== 'processing' && ocrResult()">
+    <div class="step-header">
+      <span class="step-number">2</span>
+      <h3>Text erkennen</h3>
+    </div>
+    
+    <div *ngIf="currentStep() === 'processing'" class="processing-section">
+      <div class="spinner"></div>
+      <p>{{ processingMessage() }}</p>
+      <div class="progress-bar">
+        <div class="progress-fill" [style.width.%]="ocrService.progress()"></div>
+      </div>
+    </div>
+    
+    <div *ngIf="currentStep() !== 'processing' && ocrResult()" class="step-summary">
+      <span class="success-icon">✅</span>
+      <span>{{ ocrResult()!.items.length }} Artikel erkannt</span>
+      <button class="btn-link" (click)="reprocessImage()">Erneut verarbeiten</button>
+    </div>
+  </div>
+
+  <!-- Schritt 3: Ergebnis anzeigen -->
+  <div class="step" [class.active]="currentStep() === 'result'">
+    <div class="step-header">
+      <span class="step-number">3</span>
+      <h3>Ergebnis prüfen</h3>
+    </div>
+    
+    <app-receipt-display 
+      *ngIf="currentStep() === 'result' && finalReceipt()"
+      [receipt]="finalReceipt()!"
+      (itemCorrection)="onItemCorrection($event)"
+      (save)="onSaveReceipt()"
+      (newScan)="startNewScan()">
+    </app-receipt-display>
+  </div>
+
+  <!-- Fehler-Anzeige -->
+  <div *ngIf="error()" class="error-section">
+    <div class="error-box">
+      <span class="error-icon">❌</span>
+      <p>{{ error() }}</p>
+      <button class="btn-primary" (click)="clearError()">Erneut versuchen</button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,227 @@
+<div class="budget-container">
+  <!-- Header -->
+  <mat-toolbar color="primary" class="page-header">
+    <button mat-icon-button (click)="goBack()" matTooltip="Zurück">
+      <mat-icon>arrow_back</mat-icon>
+    </button>
+    <span class="header-title">
+      <mat-icon>account_balance_wallet</mat-icon>
+      Monatsbudgets
+    </span>
+    <span class="spacer"></span>
+    <div class="user-menu">
+      <button mat-button [matMenuTriggerFor]="userMenu" class="user-menu-btn">
+        <span class="welcome-text">
+          Hallo, {{ authService.currentUser()?.username || authService.currentUser()?.email }}
+        </span>
+        <mat-icon class="avatar-icon">account_circle</mat-icon>
+        <mat-icon class="arrow-icon">expand_more</mat-icon>
+      </button>
+      <mat-menu #userMenu="matMenu">
+        <button mat-menu-item (click)="goBack()">
+          <mat-icon>dashboard</mat-icon>
+          <span>Dashboard</span>
+        </button>
+        <button mat-menu-item (click)="goToReceiptManager()">
+          <mat-icon>receipt_long</mat-icon>
+          <span>Kassenbons verwalten</span>
+        </button>
+        <button mat-menu-item (click)="goToStatistics()">
+          <mat-icon>analytics</mat-icon>
+          <span>Statistiken & Analysen</span>
+        </button>
+        <button mat-menu-item *ngIf="authService.isAdmin()" (click)="goToAdmin()">
+          <mat-icon>admin_panel_settings</mat-icon>
+          <span>Admin-Modus</span>
+        </button>
+        <button mat-menu-item (click)="logout()">
+          <mat-icon>logout</mat-icon>
+          <span>Abmelden</span>
+        </button>
+      </mat-menu>
+    </div>
+  </mat-toolbar>
+
+  <!-- Content -->
+  <div class="page-content">
+    <!-- Action Button -->
+    <div class="action-bar">
+      <button mat-raised-button color="primary" (click)="toggleAddForm()">
+        <mat-icon>{{ showAddForm() ? 'close' : 'add' }}</mat-icon>
+        {{ showAddForm() ? 'Abbrechen' : 'Budget hinzufügen' }}
+      </button>
+    </div>
+
+  <!-- Loading indicator -->
+  @if (isLoading()) {
+    <div class="loading-indicator">
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    </div>
+  }
+
+  <!-- Error message -->
+  @if (error()) {
+    <div class="error-message">
+      <mat-icon>error</mat-icon>
+      {{ error() }}
+    </div>
+  }
+
+  <!-- Add new budget form -->
+  @if (showAddForm()) {
+    <mat-card class="add-budget-card">
+      <mat-card-content>
+        <div class="add-budget-form">
+          <mat-form-field appearance="outline">
+            <mat-label>Kategorie</mat-label>
+            <mat-select [value]="newCategory()" (selectionChange)="newCategory.set($event.value)">
+              @for (cat of getAvailableCategories(); track cat.name) {
+                <mat-option [value]="cat.name">
+                  <span class="category-dot" [style.background-color]="cat.color"></span>
+                  {{ cat.name }}
+                </mat-option>
+              }
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Monatliches Limit (€)</mat-label>
+            <input matInput type="number" [value]="newAmount()" 
+                   (input)="newAmount.set($any($event.target).valueAsNumber)" 
+                   min="1" step="10">
+            <mat-icon matSuffix>euro</mat-icon>
+          </mat-form-field>
+
+          <button mat-raised-button color="primary" 
+                  [disabled]="!newCategory() || newAmount() <= 0"
+                  (click)="addBudget()">
+            <mat-icon>save</mat-icon>
+            Speichern
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+  }
+
+  <!-- Total summary card -->
+  <mat-card class="summary-card">
+    <mat-card-content>
+      <div class="summary-content">
+        <div class="summary-text">
+          <div class="summary-label">Gesamtausgaben diesen Monat</div>
+          <div class="summary-value">
+            <span class="spent">{{ getTotalSpent() | currency:'EUR':'symbol':'1.2-2':'de' }}</span>
+            @if (getTotalBudget() > 0) {
+              <span class="limit"> / {{ getTotalBudget() | currency:'EUR':'symbol':'1.2-2':'de' }}</span>
+            }
+          </div>
+        </div>
+        @if (getTotalBudget() > 0) {
+          <div class="summary-percentage">
+            {{ getOverallPercentage() | number:'1.0-0' }}%
+          </div>
+        }
+      </div>
+      @if (getTotalBudget() > 0) {
+        <mat-progress-bar 
+          mode="determinate" 
+          [value]="getOverallPercentage()"
+          [color]="getProgressColor(getOverallPercentage())">
+        </mat-progress-bar>
+      }
+    </mat-card-content>
+  </mat-card>
+
+  <mat-divider></mat-divider>
+
+  <!-- Budget list -->
+  <div class="budget-list">
+    @for (item of getCombinedData(); track item.categoryName) {
+      <mat-card class="budget-item" 
+                [class.over-budget]="item.limit && item.spent > item.limit"
+                [class.warning]="item.percentage >= 70 && item.percentage < 90"
+                [class.danger]="item.percentage >= 90">
+        <mat-card-content>
+          <!-- Normal view -->
+          @if (editingCategory() !== item.categoryName) {
+            <div class="budget-item-header">
+              <div class="category-info">
+                <span class="category-dot" [style.background-color]="item.color"></span>
+                <span class="category-name">{{ item.categoryName }}</span>
+              </div>
+              <div class="budget-actions">
+                @if (item.hasBudget) {
+                  <button mat-icon-button matTooltip="Bearbeiten" (click)="startEdit(item.categoryName)">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button matTooltip="Löschen" color="warn" (click)="deleteBudget(item.categoryName)">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                } @else {
+                  <button mat-stroked-button (click)="startEdit(item.categoryName)">
+                    <mat-icon>add</mat-icon>
+                    Budget setzen
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="budget-item-content">
+              <div class="amount-info">
+                <span class="spent-amount">{{ item.spent | currency:'EUR':'symbol':'1.2-2':'de' }}</span>
+                @if (item.limit) {
+                  <span class="limit-amount"> / {{ item.limit | currency:'EUR':'symbol':'1.2-2':'de' }}</span>
+                }
+              </div>
+              @if (item.limit) {
+                <span class="percentage" [class.over]="item.percentage >= 100">
+                  {{ item.percentage | number:'1.0-0' }}%
+                </span>
+              }
+            </div>
+
+            @if (item.hasBudget && item.limit) {
+              <mat-progress-bar 
+                mode="determinate" 
+                [value]="item.percentage"
+                [color]="getProgressColor(item.percentage)">
+              </mat-progress-bar>
+            }
+          } @else {
+            <!-- Edit view -->
+            <div class="edit-form">
+              <div class="category-info">
+                <span class="category-dot" [style.background-color]="item.color"></span>
+                <span class="category-name">{{ item.categoryName }}</span>
+              </div>
+              
+              <div class="edit-controls">
+                <mat-form-field appearance="outline" class="edit-input">
+                  <mat-label>Limit (€)</mat-label>
+                  <input matInput type="number" 
+                         [value]="editAmount()"
+                         (input)="editAmount.set($any($event.target).valueAsNumber)"
+                         min="1" step="10">
+                </mat-form-field>
+                
+                <button mat-icon-button color="primary" matTooltip="Speichern" (click)="saveEdit()">
+                  <mat-icon>check</mat-icon>
+                </button>
+                <button mat-icon-button matTooltip="Abbrechen" (click)="cancelEdit()">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            </div>
+          }
+        </mat-card-content>
+      </mat-card>
+    } @empty {
+      <div class="empty-state">
+        <mat-icon>savings</mat-icon>
+        <p>Noch keine Ausgaben diesen Monat.</p>
+        <p>Fügen Sie Budgets hinzu, um Ihre Ausgaben zu überwachen.</p>
+      </div>
+    }
+  </div>
+  </div>
+</div>

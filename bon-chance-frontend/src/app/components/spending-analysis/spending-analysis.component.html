@@ -1,0 +1,293 @@
+    <div class="spending-analysis-container">
+      <!-- Header -->
+      <mat-toolbar color="primary" class="page-header">
+        <button mat-icon-button (click)="goBack()" matTooltip="Zurück">
+          <mat-icon>arrow_back</mat-icon>
+        </button>
+        <span class="header-title">
+          <mat-icon>analytics</mat-icon>
+          Ausgaben Analyse
+        </span>
+        <span class="spacer"></span>
+        <div class="user-menu">
+          <button mat-button [matMenuTriggerFor]="userMenu" class="user-menu-btn">
+            <span class="welcome-text">
+              Hallo, {{ authService.currentUser()?.username || authService.currentUser()?.email }}
+            </span>
+            <mat-icon class="avatar-icon">account_circle</mat-icon>
+            <mat-icon class="arrow-icon">expand_more</mat-icon>
+          </button>
+          <mat-menu #userMenu="matMenu">
+            <button mat-menu-item (click)="goBack()">
+              <mat-icon>dashboard</mat-icon>
+              <span>Dashboard</span>
+            </button>
+            <button mat-menu-item (click)="goToReceiptManager()">
+              <mat-icon>receipt_long</mat-icon>
+              <span>Kassenbons verwalten</span>
+            </button>
+            <button mat-menu-item (click)="goToBudget()">
+              <mat-icon>account_balance_wallet</mat-icon>
+              <span>Budgets verwalten</span>
+            </button>
+            <button mat-menu-item (click)="goToStatistics()">
+              <mat-icon>bar_chart</mat-icon>
+              <span>Statistiken</span>
+            </button>
+            <button mat-menu-item *ngIf="authService.isAdmin()" (click)="goToAdmin()">
+              <mat-icon>admin_panel_settings</mat-icon>
+              <span>Admin-Modus</span>
+            </button>
+            <button mat-menu-item (click)="logout()">
+              <mat-icon>logout</mat-icon>
+              <span>Abmelden</span>
+            </button>
+          </mat-menu>
+        </div>
+      </mat-toolbar>
+
+      <div class="page-content">
+        <!-- Filters -->
+        <div class="filters-section">
+          <mat-card class="filters-card">
+            <mat-card-content>
+              <div class="filters-row">
+                <mat-form-field appearance="outline">
+                  <mat-label>Zeitraum</mat-label>
+                  <mat-select [(value)]="selectedPeriod" (selectionChange)="onPeriodChange()">
+                    <mat-option value="week">Diese Woche</mat-option>
+                    <mat-option value="month">Dieser Monat</mat-option>
+                    <mat-option value="quarter">Dieses Quartal</mat-option>
+                    <mat-option value="year">Dieses Jahr</mat-option>
+                    <mat-option value="custom">Benutzerdefiniert</mat-option>
+                  </mat-select>
+                </mat-form-field>
+
+                <div class="date-range" *ngIf="selectedPeriod() === 'custom'">
+                  <mat-form-field appearance="outline">
+                    <mat-label>Von</mat-label>
+                    <input
+                      matInput
+                      [matDatepicker]="startPicker"
+                      [(ngModel)]="customStartDate"
+                      (dateChange)="onDateChange()"
+                    />
+                    <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
+                    <mat-datepicker #startPicker></mat-datepicker>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline">
+                    <mat-label>Bis</mat-label>
+                    <input
+                      matInput
+                      [matDatepicker]="endPicker"
+                      [(ngModel)]="customEndDate"
+                      (dateChange)="onDateChange()"
+                    />
+                    <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
+                    <mat-datepicker #endPicker></mat-datepicker>
+                  </mat-form-field>
+                </div>
+
+                <mat-form-field appearance="outline" class="search-field">
+                  <mat-label>Suche nach Artikel</mat-label>
+                  <input
+                    matInput
+                    [(ngModel)]="searchTerm"
+                    (input)="onSearchChange()"
+                    placeholder="z.B. Bananen"
+                  />
+                  <mat-icon matSuffix>search</mat-icon>
+                </mat-form-field>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div class="loading-container" *ngIf="isLoading()">
+        <mat-spinner diameter="50"></mat-spinner>
+        <p>Analysiere Ausgaben...</p>
+      </div>
+
+      <!-- Analysis Results -->
+      <div class="analysis-content" *ngIf="!isLoading() && analysis()">
+        <div class="summary-cards">
+          <!-- Total Spending -->
+          <mat-card class="summary-card total-card">
+            <mat-card-content>
+              <div class="card-header">
+                <mat-icon>euro</mat-icon>
+                <h3>Gesamtausgaben</h3>
+              </div>
+              <div class="amount-display">
+                <span class="amount">{{
+                  analysis()!.totalAmount | currency : 'EUR' : 'symbol' : '1.2-2' : 'de'
+                }}</span>
+                <div class="comparison" *ngIf="analysis()!.periodComparison">
+                  <mat-icon
+                    [class]="getChangeIconClass(analysis()!.periodComparison!.changePercentage)"
+                  >
+                    {{ getChangeIcon(analysis()!.periodComparison!.changePercentage) }}
+                  </mat-icon>
+                  <span [class]="getChangeClass(analysis()!.periodComparison!.changePercentage)">
+                    {{ analysis()!.periodComparison!.changePercentage | number : '1.1-1' }}%
+                  </span>
+                </div>
+              </div>
+              <p class="subtitle">{{ analysis()!.transactionCount }} Transaktionen</p>
+            </mat-card-content>
+          </mat-card>
+
+          <!-- Average Transaction -->
+          <mat-card class="summary-card">
+            <mat-card-content>
+              <div class="card-header">
+                <mat-icon>receipt</mat-icon>
+                <h3>Ø pro Einkauf</h3>
+              </div>
+              <span class="amount">{{
+                analysis()!.averageTransaction | currency : 'EUR' : 'symbol' : '1.2-2' : 'de'
+              }}</span>
+            </mat-card-content>
+          </mat-card>
+
+          <!-- Search Results -->
+          <mat-card
+            class="summary-card search-card"
+            *ngIf="searchTerm() && searchResults().length > 0"
+          >
+            <mat-card-content>
+              <div class="card-header">
+                <mat-icon>search</mat-icon>
+                <h3>"{{ searchTerm() }}"</h3>
+              </div>
+              <div class="search-summary">
+                <span class="amount">{{
+                  getSearchTotal() | currency : 'EUR' : 'symbol' : '1.2-2' : 'de'
+                }}</span>
+                <p class="subtitle">{{ searchResults().length }} Artikel gefunden</p>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+
+        <mat-tab-group class="analysis-tabs">
+          <!-- Categories Tab -->
+          <mat-tab label="Kategorien">
+            <div class="tab-content">
+              <h3>Ausgaben nach Kategorien</h3>
+              <div
+                class="categories-list"
+                *ngIf="analysis()!.topCategories.length > 0; else noCategories"
+              >
+                <mat-card *ngFor="let category of analysis()!.topCategories" class="category-item">
+                  <mat-card-content>
+                    <div class="category-header">
+                      <div class="category-info">
+                        <h4>{{ category.category || 'Unkategorisiert' }}</h4>
+                        <span class="item-count">{{ category.count }} Artikel</span>
+                      </div>
+                      <div class="category-amount">
+                        <span class="amount">{{
+                          category.amount | currency : 'EUR' : 'symbol' : '1.2-2' : 'de'
+                        }}</span>
+                        <mat-chip class="percentage-chip"
+                          >{{ category.percentage | number : '1.1-1' }}%</mat-chip
+                        >
+                      </div>
+                    </div>
+                    <div class="progress-bar">
+                      <div class="progress-fill" [style.width.%]="category.percentage"></div>
+                    </div>
+                  </mat-card-content>
+                </mat-card>
+              </div>
+
+              <ng-template #noCategories>
+                <div class="no-data">
+                  <mat-icon>category</mat-icon>
+                  <p>Keine kategorisierten Ausgaben gefunden</p>
+                </div>
+              </ng-template>
+            </div>
+          </mat-tab>
+
+          <!-- Stores Tab -->
+          <mat-tab label="Geschäfte">
+            <div class="tab-content">
+              <h3>Ausgaben nach Geschäften</h3>
+              <div class="stores-list" *ngIf="analysis()!.topStores.length > 0; else noStores">
+                <mat-card *ngFor="let store of analysis()!.topStores" class="store-item">
+                  <mat-card-content>
+                    <div class="store-header">
+                      <div class="store-info">
+                        <h4>{{ store.store || 'Unbekanntes Geschäft' }}</h4>
+                        <span class="transaction-count">{{ store.count }} Einkäufe</span>
+                      </div>
+                      <div class="store-amount">
+                        <span class="amount">{{
+                          store.amount | currency : 'EUR' : 'symbol' : '1.2-2' : 'de'
+                        }}</span>
+                        <mat-chip class="percentage-chip"
+                          >{{ store.percentage | number : '1.1-1' }}%</mat-chip
+                        >
+                      </div>
+                    </div>
+                    <div class="progress-bar">
+                      <div class="progress-fill" [style.width.%]="store.percentage"></div>
+                    </div>
+                  </mat-card-content>
+                </mat-card>
+              </div>
+
+              <ng-template #noStores>
+                <div class="no-data">
+                  <mat-icon>store</mat-icon>
+                  <p>Keine Geschäfte gefunden</p>
+                </div>
+              </ng-template>
+            </div>
+          </mat-tab>
+
+          <!-- Search Results Tab -->
+          <mat-tab label="Suchergebnisse" *ngIf="searchTerm() && searchResults().length > 0">
+            <div class="tab-content">
+              <h3>Artikel: "{{ searchTerm() }}"</h3>
+              <div class="search-items">
+                <mat-card *ngFor="let item of searchResults()" class="search-item">
+                  <mat-card-content>
+                    <div class="item-info">
+                      <div class="item-details">
+                        <h4>{{ item.descriptionRaw }}</h4>
+                        <p class="item-meta">
+                          {{ item.receipt.store?.name || 'Unbekanntes Geschäft' }} •
+                          {{ item.receipt.purchaseDate | date : 'dd.MM.yyyy' }}
+                        </p>
+                      </div>
+                      <div class="item-amount">
+                        <span class="quantity">{{ item.quantity }}x</span>
+                        <span class="price">{{
+                          item.price | currency : 'EUR' : 'symbol' : '1.2-2' : 'de'
+                        }}</span>
+                        <span class="total">{{
+                          item.price * item.quantity | currency : 'EUR' : 'symbol' : '1.2-2' : 'de'
+                        }}</span>
+                      </div>
+                    </div>
+                  </mat-card-content>
+                </mat-card>
+              </div>
+            </div>
+          </mat-tab>
+        </mat-tab-group>
+      </div>
+
+      <!-- No Data State -->
+      <div class="no-data-container" *ngIf="!isLoading() && !analysis()">
+        <mat-icon>analytics</mat-icon>
+        <h3>Keine Daten verfügbar</h3>
+        <p>Für den gewählten Zeitraum wurden keine Kassenbons gefunden.</p>
+      </div>
+    </div>

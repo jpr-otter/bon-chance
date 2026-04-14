@@ -1,0 +1,200 @@
+    <div class="admin-container">
+      <!-- Header -->
+      <mat-toolbar color="primary" class="page-header">
+        <button mat-icon-button (click)="goBack()" matTooltip="Zurück">
+          <mat-icon>arrow_back</mat-icon>
+        </button>
+        <span class="header-title">
+          <mat-icon>admin_panel_settings</mat-icon>
+          Admin Dashboard
+        </span>
+        <span class="spacer"></span>
+        <div class="user-menu">
+          <button mat-button [matMenuTriggerFor]="userMenu" class="user-menu-btn">
+            <span class="welcome-text">
+              Hallo, {{ authService.currentUser()?.username || authService.currentUser()?.email }}
+            </span>
+            <mat-icon class="avatar-icon">account_circle</mat-icon>
+            <mat-icon class="arrow-icon">expand_more</mat-icon>
+          </button>
+          <mat-menu #userMenu="matMenu">
+            <button mat-menu-item (click)="goBack()">
+              <mat-icon>dashboard</mat-icon>
+              <span>Dashboard</span>
+            </button>
+            <button mat-menu-item (click)="goToReceiptManager()">
+              <mat-icon>receipt_long</mat-icon>
+              <span>Kassenbons verwalten</span>
+            </button>
+            <button mat-menu-item (click)="goToBudget()">
+              <mat-icon>account_balance_wallet</mat-icon>
+              <span>Budgets verwalten</span>
+            </button>
+            <button mat-menu-item (click)="goToStatistics()">
+              <mat-icon>analytics</mat-icon>
+              <span>Statistiken & Analysen</span>
+            </button>
+            <button mat-menu-item (click)="logout()">
+              <mat-icon>logout</mat-icon>
+              <span>Abmelden</span>
+            </button>
+          </mat-menu>
+        </div>
+      </mat-toolbar>
+
+      <!-- Stats -->
+      <div class="stats-container">
+        <mat-card class="stat-card">
+          <mat-card-content>
+            <div class="stat-content">
+              <mat-icon color="primary">people</mat-icon>
+              <div class="stat-info">
+                <div class="stat-number">{{ users().length }}</div>
+                <div class="stat-label">Benutzer</div>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card class="stat-card">
+          <mat-card-content>
+            <div class="stat-content">
+              <mat-icon color="accent">receipt</mat-icon>
+              <div class="stat-info">
+                <div class="stat-number">{{ getTotalReceiptsCount() }}</div>
+                <div class="stat-label">Kassenbons</div>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card class="stat-card">
+          <mat-card-content>
+            <div class="stat-content">
+              <mat-icon color="warn">euro</mat-icon>
+              <div class="stat-info">
+                <div class="stat-number">€{{ getTotalAmount() }}</div>
+                <div class="stat-label">Gesamtsumme</div>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card class="stat-card">
+          <mat-card-content>
+            <div class="stat-content">
+              <mat-icon color="primary">admin_panel_settings</mat-icon>
+              <div class="stat-info">
+                <div class="stat-number">{{ getAdminCount() }}</div>
+                <div class="stat-label">Admins</div>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+
+      <!-- Loading State -->
+      <div *ngIf="isLoading()" class="loading-container">
+        <mat-spinner></mat-spinner>
+        <p>Benutzerdaten werden geladen...</p>
+      </div>
+
+      <!-- Error State -->
+      <div *ngIf="error()" class="error-container">
+        <mat-icon color="warn">error</mat-icon>
+        <p>{{ error() }}</p>
+        <button mat-button color="primary" (click)="loadUsers()">
+          <mat-icon>refresh</mat-icon>
+          Erneut versuchen
+        </button>
+      </div>
+
+      <!-- Users Table -->
+      <div *ngIf="!isLoading() && !error() && users().length > 0" class="users-section">
+        <mat-card>
+          <mat-card-header>
+            <mat-card-title>
+              <mat-icon>people</mat-icon>
+              Alle Benutzer
+            </mat-card-title>
+            <div class="card-actions">
+              <button mat-button color="primary" (click)="loadUsers()">
+                <mat-icon>refresh</mat-icon>
+                Aktualisieren
+              </button>
+            </div>
+          </mat-card-header>
+          <mat-card-content>
+            <mat-accordion>
+              <mat-expansion-panel *ngFor="let user of users(); trackBy: trackByUserId">
+                <mat-expansion-panel-header>
+                  <mat-panel-title>
+                    <div class="user-title">
+                      <mat-icon>person</mat-icon>
+                      <span class="username">{{ user.username || 'Kein Benutzername' }}</span>
+                      <mat-chip *ngIf="user.username === 'admin'" color="accent" class="admin-chip">
+                        ADMIN
+                      </mat-chip>
+                    </div>
+                  </mat-panel-title>
+                  <mat-panel-description>
+                    {{ user.email }} • Erstellt: {{ formatDate(user.created_at) }}
+                  </mat-panel-description>
+                </mat-expansion-panel-header>
+
+                <div class="user-details">
+                  <div class="user-info">
+                    <p><strong>ID:</strong> {{ user.id }}</p>
+                    <p><strong>E-Mail:</strong> {{ user.email }}</p>
+                    <p><strong>Benutzername:</strong> {{ user.username || 'Nicht gesetzt' }}</p>
+                    <p><strong>Erstellt:</strong> {{ formatDate(user.created_at) }}</p>
+                    <p><strong>Zuletzt geändert:</strong> {{ formatDate(user.updated_at) }}</p>
+                  </div>
+
+                  <mat-divider></mat-divider>
+
+                  <div class="user-actions">
+                    <button mat-button color="primary" (click)="loadUserReceipts(user.id)">
+                      <mat-icon>receipt</mat-icon>
+                      Kassenbons anzeigen ({{ getUserReceiptCount(user.id) }})
+                    </button>
+                    <button
+                      mat-button
+                      color="warn"
+                      (click)="confirmDeleteUser(user)"
+                      [disabled]="user.username === 'admin'"
+                      class="delete-button"
+                    >
+                      <mat-icon>delete</mat-icon>
+                      Benutzer löschen
+                    </button>
+                  </div>
+
+                  <!-- User Receipts -->
+                  <div *ngIf="userReceipts()[user.id]" class="receipts-section">
+                    <h4>Kassenbons von {{ user.username || user.email }}</h4>
+                    <div *ngIf="userReceipts()[user.id]?.length === 0" class="no-receipts">
+                      <mat-icon>receipt</mat-icon>
+                      <p>Keine Kassenbons vorhanden</p>
+                    </div>
+                    <div *ngFor="let receipt of userReceipts()[user.id]" class="receipt-item">
+                      <mat-card class="receipt-card">
+                        <mat-card-content>
+                          <div class="receipt-info">
+                            <div>
+                              <strong>{{ formatDate(receipt.purchase_date) }}</strong>
+                            </div>
+                            <div class="receipt-amount">€{{ receipt.total_amount.toFixed(2) }}</div>
+                          </div>
+                          <p>{{ receipt.items_count }} Artikel</p>
+                        </mat-card-content>
+                      </mat-card>
+                    </div>
+                  </div>
+                </div>
+              </mat-expansion-panel>
+            </mat-accordion>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </div>
