@@ -1,10 +1,305 @@
-# 🚀 BonChance - Setup-Anleitung
+# BonChance - Setup Guide
+
+This guide describes all steps required to get the BonChance project running on a new machine.
+
+---
+
+## Table of Contents
+
+1. System Requirements
+2. Installing Dependencies
+3. Project Setup
+4. Starting Services
+5. Creating Demo Data
+6. Using the App
+7. Useful Commands
+8. Troubleshooting
+
+---
+
+## System Requirements
+
+### Operating System
+- Linux (Ubuntu 20.04+ recommended) or WSL2 on Windows
+- macOS is also supported
+
+### Required Software
+
+| Software | Version | Purpose |
+|----------|---------|--------|
+| Rust | 1.70+ | Backend services |
+| Node.js | 18+ | Frontend (Angular) |
+| npm | 9+ | Package manager |
+| PostgreSQL | 14+ | Database |
+| Python | 3.8+ | Demo data & OCR service |
+| Git | 2.0+ | Version control |
+
+### Optional Software
+
+| Software | Purpose |
+|----------|--------|
+| Docker | Alternative to manual setup |
+| Tesseract OCR | Receipt text recognition |
+
+---
+
+## Installing Dependencies
+
+### 1. Install Rust
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
+
+rustc --version
+cargo --version
+```
+
+### 2. Install Node.js & npm
+
+Option A: via nvm (recommended)
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+source ~/.bashrc
+nvm install 20
+nvm use 20
+
+node --version
+npm --version
+```
+
+Option B: via apt (Ubuntu/Debian)
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+### 3. Install PostgreSQL
+
+Ubuntu/Debian:
+```bash
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+```
+
+macOS (via Homebrew):
+```bash
+brew install postgresql@15
+brew services start postgresql@15
+```
+
+### 4. Set Up Database
+
+```bash
+sudo -u postgres psql
+
+CREATE DATABASE bonchance;
+CREATE USER postgres WITH PASSWORD 'postgres';
+GRANT ALL PRIVILEGES ON DATABASE bonchance TO postgres;
+\q
+```
+
+Alternative:
+```bash
+sudo -u postgres createdb bonchance
+```
+
+### 5. Install Python
+
+```bash
+sudo apt install python3 python3-pip
+
+python3 --version
+```
+
+---
+
+## Project Setup
+
+### 1. Clone Repository
+
+```bash
+git clone <repository-url> bon-chance
+cd bon-chance
+```
+
+### 2. Build Backend
+
+```bash
+cd backend
+cargo build --release
+```
+
+### 3. Setup Frontend
+
+```bash
+cd ../bon-chance-frontend
+npm install
+```
+
+### 4. Run Migrations
+
+```bash
+psql -U postgres -d bonchance -f backend/user-service/migrations/001_create_users.sql
+psql -U postgres -d bonchance -f backend/user-service/migrations/002_make_username_required.sql
+
+psql -U postgres -d bonchance -f backend/receipt-service/migrations/001_create_receipts.sql
+psql -U postgres -d bonchance -f backend/receipt-service/migrations/002_add_store_name_to_receipts.sql
+psql -U postgres -d bonchance -f backend/receipt-service/migrations/003_create_budgets.sql
+```
+
+---
+
+## Starting Services
+
+### Option A: devctl.sh
+
+```bash
+./devctl.sh up
+./devctl.sh status
+./devctl.sh down
+```
+
+### Option B: Manual
+
+User Service:
+```bash
+DATABASE_URL="postgres://postgres:postgres@localhost:5432/bonchance" \
+JWT_SECRET="your-super-secret-key" \
+./target/release/user-service
+```
+
+Receipt Service:
+```bash
+DATABASE_URL="postgres://postgres:postgres@localhost:5432/bonchance" \
+JWT_SECRET="your-super-secret-key" \
+./target/release/receipt-service
+```
+
+API Gateway:
+```bash
+DATABASE_URL="postgres://postgres:postgres@localhost:5432/bonchance" \
+JWT_SECRET="your-super-secret-key" \
+USER_SERVICE_URL="http://localhost:3001" \
+RECEIPT_SERVICE_URL="http://localhost:3002" \
+./target/release/api-gateway
+```
+
+Frontend:
+```bash
+cd bon-chance-frontend
+npm start
+```
+
+---
+
+## Create Demo Data
+
+```bash
+./devctl.sh seed
+./devctl.sh list
+```
+
+---
+
+## Using the App
+
+Open: http://localhost:4200
+
+Login with demo users or create a new account.
+
+Features:
+- Dashboard
+- Receipt management
+- Statistics
+- Budgeting
+- Admin panel
+
+---
+
+## Useful Commands
+
+```bash
+./devctl.sh up
+./devctl.sh down
+./devctl.sh restart
+./devctl.sh status
+./devctl.sh logs
+./devctl.sh build
+./devctl.sh seed
+./devctl.sh clear
+./devctl.sh list
+./devctl.sh test
+```
+
+---
+
+## Troubleshooting
+
+### Port already in use
+```bash
+lsof -i :3000
+kill -9 <PID>
+```
+
+### Database connection failed
+```bash
+pg_isready -h localhost -p 5432
+```
+
+### cargo not found
+```bash
+source $HOME/.cargo/env
+```
+
+### npm issues
+```bash
+rm -rf node_modules
+npm install
+```
+
+---
+
+## Project Structure
+
+```
+bon-chance/
+backend/
+frontend/
+scripts/
+devctl.sh
+```
+
+---
+
+## Docker
+
+```bash
+docker-compose up -d
+docker-compose logs -f
+docker-compose down
+```
+
+---
+
+## Support
+
+Check logs or contact the development team.
+
+---
+
+
+
+# BonChance - Setup-Anleitung (deutsch)
 
 Diese Anleitung beschreibt alle Schritte, um das BonChance-Projekt auf einem neuen Rechner zum Laufen zu bringen.
 
 ---
 
-## 📋 Inhaltsverzeichnis
+## Inhaltsverzeichnis
 
 1. [Systemvoraussetzungen](#-systemvoraussetzungen)
 2. [Installation der Abhängigkeiten](#-installation-der-abhängigkeiten)
@@ -17,7 +312,7 @@ Diese Anleitung beschreibt alle Schritte, um das BonChance-Projekt auf einem neu
 
 ---
 
-## 🖥️ Systemvoraussetzungen
+##  Systemvoraussetzungen
 
 ### Betriebssystem
 - **Linux** (Ubuntu 20.04+ empfohlen) oder **WSL2** unter Windows
@@ -43,7 +338,7 @@ Diese Anleitung beschreibt alle Schritte, um das BonChance-Projekt auf einem neu
 
 ---
 
-## 📦 Installation der Abhängigkeiten
+## Installation der Abhängigkeiten
 
 ### 1. Rust installieren
 
@@ -124,7 +419,7 @@ python3 --version
 
 ---
 
-## 🔧 Projekt einrichten
+## Projekt einrichten
 
 ### 1. Repository klonen (falls nicht vorhanden)
 
@@ -145,7 +440,7 @@ cargo build --release
 # - receipt-service
 ```
 
-> ⏱️ Der erste Build kann 5-10 Minuten dauern.
+> Der erste Build kann 5-10 Minuten dauern.
 
 ### 3. Frontend einrichten
 
@@ -172,7 +467,7 @@ psql -U postgres -d bonchance -f backend/receipt-service/migrations/003_create_b
 
 ---
 
-## ▶️ Services starten
+## Services starten
 
 ### Option A: Mit devctl.sh (empfohlen)
 
@@ -248,7 +543,7 @@ curl http://localhost:3002/health
 
 ---
 
-## 📊 Demo-Daten erstellen
+## Demo-Daten erstellen
 
 Das Projekt enthält ein Script zum Erstellen realistischer Testdaten:
 
@@ -285,7 +580,7 @@ Nach dem Seeding stehen folgende Benutzer zur Verfügung:
 
 ---
 
-## 🌐 App verwenden
+## App verwenden
 
 ### 1. Browser öffnen
 
@@ -305,7 +600,7 @@ Verwende einen der Demo-Benutzer (siehe oben) oder registriere einen neuen Accou
 
 ---
 
-## 🛠️ Nützliche Befehle
+## Nützliche Befehle
 
 ### devctl.sh Befehlsübersicht
 
@@ -344,7 +639,7 @@ cargo test
 
 ---
 
-## ❗ Fehlerbehebung
+## Fehlerbehebung
 
 ### Problem: "Port bereits belegt"
 
@@ -410,7 +705,7 @@ sudo -u postgres psql -c "CREATE DATABASE bonchance;"
 
 ---
 
-## 📁 Projektstruktur
+## Projektstruktur
 
 ```
 bon-chance/
@@ -432,7 +727,7 @@ bon-chance/
 
 ---
 
-## 🐳 Alternative: Docker-Setup
+## Alternative: Docker-Setup
 
 Falls Docker bevorzugt wird:
 
@@ -449,7 +744,7 @@ docker-compose down
 
 ---
 
-## 📞 Support
+## Support
 
 Bei Fragen oder Problemen:
 1. Prüfe zuerst die Fehlerbehebung oben
@@ -458,4 +753,4 @@ Bei Fragen oder Problemen:
 
 ---
 
-**Viel Erfolg mit BonChance! 🎉**
+
