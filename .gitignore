@@ -7,6 +7,7 @@
 logs/
 .pids/
 *.log
+nohup.out
 
 # Documentation drafts / local docs
 docs/
@@ -14,6 +15,7 @@ docs/
 # Rust build output
 target/
 backend/target/
+backend/tgres
 
 # Frontend dependencies and build output
 bon-chance-frontend/node_modules/
