@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2026-10-01] – Scanner
+
+### Changed
+- **Frontend**: The receipt scanner (`/scan`, "Kassenbon scannen" in the dashboard menu) now sends the photo to the backend OCR service instead of running tesseract.js in the browser. It shows store, date, total and items, warns when the items do not add up to the total and opens the detail dialog for corrections. A gallery upload is available as fallback; the previous upload entry is now "Foto hochladen".
+- **Frontend**: Camera requests the highest available resolution and captures with higher JPEG quality.
+
+### Removed
+- **Frontend**: Browser-side `OcrService` and the `tesseract.js` dependency (its parser only recognised prices with a "€" sign and stored results only in localStorage).
+
+### Fixed
+- **Receipt Service**: Purchase time from the receipt is interpreted as German local time (Europe/Berlin) instead of UTC, so times are no longer shown 1–2 hours late and late purchases stay on the right day.
+- **Dashboard**: Selecting the same photo twice triggers the upload again.
+
 ## [2026-10-01]
 
 ### Changed

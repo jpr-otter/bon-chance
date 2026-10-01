@@ -294,12 +294,18 @@ pub async fn upload_receipt(
 }
 
 /// Combines the OCR service's ISO date ("2025-07-14") and optional time ("14:32").
+/// Receipts print German local time, so it is converted from Europe/Berlin to UTC.
 fn parse_ocr_date(date: &str, time: Option<&str>) -> Option<chrono::DateTime<Utc>> {
+    use chrono::TimeZone;
+
     let day = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").ok()?;
     let time = time
         .and_then(|t| chrono::NaiveTime::parse_from_str(t, "%H:%M").ok())
         .unwrap_or_else(|| chrono::NaiveTime::from_hms_opt(12, 0, 0).unwrap());
-    Some(day.and_time(time).and_utc())
+    chrono_tz::Europe::Berlin
+        .from_local_datetime(&day.and_time(time))
+        .earliest()
+        .map(|local| local.with_timezone(&Utc))
 }
 
 fn parse_receipt_text(text: &str) -> (String, Decimal, chrono::DateTime<Utc>) {
@@ -544,10 +550,14 @@ mod tests {
 
     #[test]
     fn parses_ocr_date_with_and_without_time() {
+        // Summer time: UTC+2
         let with_time = parse_ocr_date("2025-07-14", Some("14:32")).unwrap();
-        assert_eq!(with_time.to_rfc3339(), "2025-07-14T14:32:00+00:00");
+        assert_eq!(with_time.to_rfc3339(), "2025-07-14T12:32:00+00:00");
+        // Winter time: UTC+1; a late purchase must stay on its day
+        let late = parse_ocr_date("2025-01-31", Some("23:30")).unwrap();
+        assert_eq!(late.to_rfc3339(), "2025-01-31T22:30:00+00:00");
         let without_time = parse_ocr_date("2025-07-14", None).unwrap();
-        assert_eq!(without_time.to_rfc3339(), "2025-07-14T12:00:00+00:00");
+        assert_eq!(without_time.to_rfc3339(), "2025-07-14T10:00:00+00:00");
         assert!(parse_ocr_date("14.07.2025", None).is_none());
     }
 }

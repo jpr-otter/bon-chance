@@ -746,14 +746,14 @@ export class DashboardComponent implements OnInit {
   }
 
   protected scanReceipt(): void {
-    // TODO: Navigate to camera/scan component
-    console.warn('[Dashboard] Kassenbon scannen - noch nicht implementiert');
+    this.router.navigate(['/scan']);
   }
 
   protected onFileSelected(event: Event): void {
     const input = event.target as HTMLInputElement;
     if (input.files && input.files.length > 0) {
       const file = input.files[0];
+      input.value = ''; // allow selecting the same file again
       this.receiptService.uploadReceipt(file).subscribe({
         next: (receipt) => {
           console.log('[Dashboard] Receipt uploaded successfully:', receipt);

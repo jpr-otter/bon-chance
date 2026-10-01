@@ -5,61 +5,85 @@
   </div>
 
   <!-- Schritt 1: Foto aufnehmen -->
-  <div class="step" [class.active]="currentStep() === 'camera'" [class.completed]="currentStep() !== 'camera' && capturedImage()">
+  <div class="step" [class.active]="currentStep() === 'camera'" [class.completed]="currentStep() !== 'camera'">
     <div class="step-header">
       <span class="step-number">1</span>
       <h3>Foto aufnehmen</h3>
     </div>
-    
-    <app-camera-capture 
-      *ngIf="currentStep() === 'camera'"
-      (imageCapture)="onImageCaptured($event)"
-      (cancelAction)="onCancel()">
-    </app-camera-capture>
-    
+
+    <ng-container *ngIf="currentStep() === 'camera'">
+      <ul class="photo-tips">
+        <li>Bon flach auf einen dunklen Untergrund legen</li>
+        <li>Ganzen Bon ins Bild nehmen, gerade von oben</li>
+        <li>Gutes Licht, kein Blitz-Reflex</li>
+      </ul>
+
+      <app-camera-capture (imageCapture)="onImageCaptured($event)" (cancelAction)="goToDashboard()">
+      </app-camera-capture>
+
+      <div class="upload-alternative">
+        <span>oder</span>
+        <button class="btn-link" (click)="fileInput.click()">Foto aus Galerie wählen</button>
+        <input #fileInput type="file" accept="image/*" hidden (change)="onFileSelected($event)" />
+      </div>
+    </ng-container>
+
     <div *ngIf="currentStep() !== 'camera' && capturedImage()" class="step-summary">
-      <span class="success-icon">✅</span>
+      <img class="thumbnail" [src]="capturedImage()" alt="Aufgenommener Kassenbon" />
       <span>Foto aufgenommen</span>
-      <button class="btn-link" (click)="retakePhoto()">Neu aufnehmen</button>
     </div>
   </div>
 
-  <!-- Schritt 2: OCR Verarbeitung -->
-  <div class="step" [class.active]="currentStep() === 'processing'" [class.completed]="currentStep() !== 'processing' && ocrResult()">
+  <!-- Schritt 2: Erkennung -->
+  <div class="step" [class.active]="currentStep() === 'processing'" [class.completed]="currentStep() === 'result'">
     <div class="step-header">
       <span class="step-number">2</span>
       <h3>Text erkennen</h3>
     </div>
-    
+
     <div *ngIf="currentStep() === 'processing'" class="processing-section">
       <div class="spinner"></div>
-      <p>{{ processingMessage() }}</p>
-      <div class="progress-bar">
-        <div class="progress-fill" [style.width.%]="ocrService.progress()"></div>
-      </div>
-    </div>
-    
-    <div *ngIf="currentStep() !== 'processing' && ocrResult()" class="step-summary">
-      <span class="success-icon">✅</span>
-      <span>{{ ocrResult()!.items.length }} Artikel erkannt</span>
-      <button class="btn-link" (click)="reprocessImage()">Erneut verarbeiten</button>
+      <p>Kassenbon wird ausgewertet… ({{ elapsedSeconds() }} s)</p>
     </div>
   </div>
 
-  <!-- Schritt 3: Ergebnis anzeigen -->
+  <!-- Schritt 3: Ergebnis -->
   <div class="step" [class.active]="currentStep() === 'result'">
     <div class="step-header">
       <span class="step-number">3</span>
       <h3>Ergebnis prüfen</h3>
     </div>
-    
-    <app-receipt-display 
-      *ngIf="currentStep() === 'result' && finalReceipt()"
-      [receipt]="finalReceipt()!"
-      (itemCorrection)="onItemCorrection($event)"
-      (save)="onSaveReceipt()"
-      (newScan)="startNewScan()">
-    </app-receipt-display>
+
+    <div *ngIf="currentStep() === 'result' && receipt() as r" class="result-section">
+      <div class="result-meta">
+        <div><strong>{{ r.store?.name || 'Unbekannter Laden' }}</strong></div>
+        <div>{{ r.purchaseDate | date: 'dd.MM.yyyy HH:mm' }}</div>
+        <div class="result-total">{{ r.totalAmount | currency: 'EUR' : 'symbol' : '1.2-2' : 'de' }}</div>
+      </div>
+
+      <div *ngIf="!sumMatchesTotal()" class="review-hint">
+        ⚠️ Die erkannten Artikel ergeben {{ itemsSum() | currency: 'EUR' : 'symbol' : '1.2-2' : 'de' }}
+        statt {{ r.totalAmount | currency: 'EUR' : 'symbol' : '1.2-2' : 'de' }}. Bitte prüfen und ggf. korrigieren.
+      </div>
+
+      <ul class="item-list" *ngIf="r.items?.length; else noItems">
+        <li *ngFor="let item of r.items">
+          <span class="item-desc">
+            <span *ngIf="item.quantity !== 1">{{ item.quantity }} × </span>{{ item.descriptionRaw }}
+          </span>
+          <span class="item-price">{{ item.price * item.quantity | currency: 'EUR' : 'symbol' : '1.2-2' : 'de' }}</span>
+        </li>
+      </ul>
+      <ng-template #noItems>
+        <p class="review-hint">Es wurden keine Artikel erkannt. Du kannst sie in den Details manuell ergänzen.</p>
+      </ng-template>
+
+      <div class="result-actions">
+        <button class="btn-primary" (click)="openDetails()">Details &amp; bearbeiten</button>
+        <button class="btn-secondary" (click)="startNewScan()">Neuen Bon scannen</button>
+        <button class="btn-link" (click)="goToDashboard()">Zur Übersicht</button>
+      </div>
+    </div>
   </div>
 
   <!-- Fehler-Anzeige -->
@@ -67,7 +91,8 @@
     <div class="error-box">
       <span class="error-icon">❌</span>
       <p>{{ error() }}</p>
-      <button class="btn-primary" (click)="clearError()">Erneut versuchen</button>
+      <button class="btn-primary" (click)="retry()">Erneut versuchen</button>
+      <button class="btn-link" (click)="clearError()">Anderes Foto</button>
     </div>
   </div>
 </div>
