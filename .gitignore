@@ -32,3 +32,4 @@ backend/ocr-service/venv/
 Thumbs.db
 .idea/
 .vscode/
+**/.pytest_cache/

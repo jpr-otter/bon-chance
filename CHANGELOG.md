@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2026-10-01]
+
+### Changed
+- **OCR Service**: Rebuilt receipt recognition for real phone photos.
+  - Preprocessing (`preprocessing.py`): receipt detection with perspective correction, 90°/180° rotation handling, deskew, scaling to a Tesseract-friendly character size, shadow removal and adaptive binarisation (replaces the global mean threshold that turned shadows black).
+  - Parsing (`receipt_parser.py`): layout-aware item parsing for REWE/Lidl (quantity line below the item), ALDI/EDEKA (quantity line above), weight lines, discounts and deposit; footer/tax/payment lines no longer become items; tolerant to common OCR slips (`0,O9`, `3,878`, `SUBIE` for `SUMME`, garbled `2 Stk x` lines).
+  - The service now returns `total`, `store_name`, `date`, `time`, `items_sum`, `sum_matches_total` and `confidence`; several Tesseract passes are tried and the one whose items add up to the total wins.
+  - Categorisation (`categories.py`): word-based matching instead of substrings (e.g. "Basmati Reis" was "Süßwaren" because of "eis").
+  - Test suite with synthetic receipt photos (`tests/`).
+- **Receipt Service**: Uses store, total and date from the OCR service (text parsing stays as fallback), forwards the real image content type, adds a request timeout.
+
+### Fixed
+- **OCR Service**: Missing `numpy` dependency; Docker image no longer depends on the removed `libgl1-mesa-glx` package.
+- **Devctl**: Reinstalls OCR dependencies when `requirements.txt` changes.
+
 ## [2025-11-28]
 
 ### Added

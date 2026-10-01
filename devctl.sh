@@ -217,10 +217,15 @@ start_ocr_service() {
   : > "$logf"
   log "Starting ocr-service (3003)";
   
-  if [[ ! -d "$BACKEND_DIR/ocr-service/venv" ]]; then
+  local ocr_dir="$BACKEND_DIR/ocr-service"
+  if [[ ! -d "$ocr_dir/venv" ]]; then
     log "Creating venv for ocr-service..."
-    python3 -m venv "$BACKEND_DIR/ocr-service/venv"
-    "$BACKEND_DIR/ocr-service/venv/bin/pip" install -r "$BACKEND_DIR/ocr-service/requirements.txt"
+    python3 -m venv "$ocr_dir/venv"
+  fi
+  # (Re)install dependencies whenever requirements.txt changed
+  if [[ ! -f "$ocr_dir/venv/.requirements.stamp" || "$ocr_dir/requirements.txt" -nt "$ocr_dir/venv/.requirements.stamp" ]]; then
+    log "Installing ocr-service dependencies..."
+    "$ocr_dir/venv/bin/pip" install -r "$ocr_dir/requirements.txt" && touch "$ocr_dir/venv/.requirements.stamp"
   fi
   
   (cd "$BACKEND_DIR/ocr-service" && ./venv/bin/uvicorn main:app --host 0.0.0.0 --port 3003 >> "$logf" 2>&1 & write_pid ocr-service $!)
