@@ -160,11 +160,15 @@ pub async fn upload_receipt(
 
     let mut file_bytes = Vec::new();
     let mut filename = String::new();
+    let mut content_type = String::from("image/jpeg");
 
     while let Some(field) = multipart.next_field().await.map_err(|_| AppError::BadRequest("Multipart error".to_string()))? {
         let name = field.name().unwrap_or("").to_string();
         if name == "image" {
             filename = field.file_name().unwrap_or("receipt.jpg").to_string();
+            if let Some(ct) = field.content_type() {
+                content_type = ct.to_string();
+            }
             file_bytes = field.bytes().await.map_err(|_| AppError::BadRequest("File read error".to_string()))?.to_vec();
             break;
         }
@@ -175,10 +179,13 @@ pub async fn upload_receipt(
     }
 
     // Call OCR Service
-    let client = Client::new();
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(120))
+        .build()
+        .map_err(|e| AppError::InternalServerError(e.to_string()))?;
     let part = reqwest::multipart::Part::bytes(file_bytes)
         .file_name(filename)
-        .mime_str("image/jpeg")
+        .mime_str(&content_type)
         .map_err(|e| AppError::InternalServerError(e.to_string()))?;
 
     let form = reqwest::multipart::Form::new().part("file", part);
@@ -192,6 +199,9 @@ pub async fn upload_receipt(
         .await
         .map_err(|e| AppError::InternalServerError(format!("OCR Service error: {}", e)))?;
 
+    if ocr_response.status().is_client_error() {
+        return Err(AppError::BadRequest("Das Bild konnte nicht gelesen werden".to_string()));
+    }
     if !ocr_response.status().is_success() {
         return Err(AppError::InternalServerError("OCR Service failed".to_string()));
     }
@@ -199,8 +209,26 @@ pub async fn upload_receipt(
     let ocr_result: serde_json::Value = ocr_response.json().await.map_err(|_| AppError::InternalServerError("Failed to parse OCR response".to_string()))?;
     let text = ocr_result["text"].as_str().unwrap_or("");
 
-    // Parse Text for store and total
-    let (store_name, total_amount, date) = parse_receipt_text(text);
+    // The OCR service extracts store, total and date itself (with layout-aware
+    // parsing and a cross-check against the item sum). The text based parsing
+    // below is only a fallback for older OCR service versions.
+    let (fallback_store, fallback_total, fallback_date) = parse_receipt_text(text);
+    let store_name = if ocr_result.get("store_name").is_some() {
+        ocr_result["store_name"]
+            .as_str()
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| "Unbekannter Laden".to_string())
+    } else {
+        fallback_store
+    };
+    let total_amount = ocr_result["total"]
+        .as_f64()
+        .and_then(|t| Decimal::from_str(&format!("{:.2}", t)).ok())
+        .unwrap_or(fallback_total);
+    let date = ocr_result["date"]
+        .as_str()
+        .and_then(|d| parse_ocr_date(d, ocr_result["time"].as_str()))
+        .unwrap_or(fallback_date);
 
     // Parse items from OCR response
     let ocr_items = ocr_result["items"].as_array();
@@ -263,6 +291,15 @@ pub async fn upload_receipt(
     };
 
     Ok(Json(response))
+}
+
+/// Combines the OCR service's ISO date ("2025-07-14") and optional time ("14:32").
+fn parse_ocr_date(date: &str, time: Option<&str>) -> Option<chrono::DateTime<Utc>> {
+    let day = chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").ok()?;
+    let time = time
+        .and_then(|t| chrono::NaiveTime::parse_from_str(t, "%H:%M").ok())
+        .unwrap_or_else(|| chrono::NaiveTime::from_hms_opt(12, 0, 0).unwrap());
+    Some(day.and_time(time).and_utc())
 }
 
 fn parse_receipt_text(text: &str) -> (String, Decimal, chrono::DateTime<Utc>) {
@@ -499,4 +536,18 @@ pub async fn get_current_spending(
         .map_err(|e| AppError::InternalServerError(e.to_string()))?;
     
     Ok(JsonResponse(spending))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_ocr_date_with_and_without_time() {
+        let with_time = parse_ocr_date("2025-07-14", Some("14:32")).unwrap();
+        assert_eq!(with_time.to_rfc3339(), "2025-07-14T14:32:00+00:00");
+        let without_time = parse_ocr_date("2025-07-14", None).unwrap();
+        assert_eq!(without_time.to_rfc3339(), "2025-07-14T12:00:00+00:00");
+        assert!(parse_ocr_date("14.07.2025", None).is_none());
+    }
 }
