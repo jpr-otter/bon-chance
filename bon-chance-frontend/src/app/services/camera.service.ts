@@ -45,8 +45,10 @@ export class CameraService {
     try {
       const defaultConfig: CameraConfig = {
         facingMode: 'environment',
-        width: 1920,
-        height: 1080,
+        // Ask for the highest resolution the camera offers: small print on
+        // receipts needs every pixel. Browsers fall back to what is supported.
+        width: 3840,
+        height: 2160,
         frameRate: 30,
         ...config,
       };

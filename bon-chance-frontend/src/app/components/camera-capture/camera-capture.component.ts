@@ -43,7 +43,7 @@ export class CameraCaptureComponent {
     if (!this.videoElement || !this.canvasElement) return;
 
     try {
-      const photoResult = await this.cameraService.capturePhoto(this.videoElement.nativeElement);
+      const photoResult = await this.cameraService.capturePhoto(this.videoElement.nativeElement, 0.92);
 
       if (photoResult) {
         // Convert data URL to File

@@ -324,9 +324,13 @@
           <mat-icon>note_add</mat-icon>
           <span>Test-Kassenbon</span>
         </button>
-        <button mat-menu-item (click)="fileInput.click()">
+        <button mat-menu-item (click)="scanReceipt()">
           <mat-icon>camera_alt</mat-icon>
           <span>Kassenbon scannen</span>
+        </button>
+        <button mat-menu-item (click)="fileInput.click()">
+          <mat-icon>upload_file</mat-icon>
+          <span>Foto hochladen</span>
         </button>
       </mat-menu>
     </div>
