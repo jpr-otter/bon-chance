@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2026-10-01] – Build & Tests
+
+### Fixed
+- **Frontend**: `npm ci` works again without `--legacy-peer-deps`: added the missing `@angular/platform-browser-dynamic` peer of `@swimlane/ngx-charts` and aligned `@angular/animations` with the other Angular packages (20.2.x).
+- **Frontend**: Production build no longer fails on the component style budget: the receipt manager's filter-menu styles (rendered in the CDK overlay) moved from `::ng-deep` in the component to `styles.scss`.
+- **Frontend**: Unit tests pass: zoneless change detection provided in the service specs, outdated "Hello" title assertion replaced.
+
+### Added
+- **Frontend**: Unit tests for the receipt scanner (result, sum mismatch warning, error handling).
+
 ## [2026-10-01] – Scanner
 
 ### Changed
